@@ -1,3 +1,5 @@
 google-genai
 pytest
 rich
+watchdog
+python-dotenv
