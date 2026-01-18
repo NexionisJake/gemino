@@ -26,6 +26,10 @@ reports/
 
 # Test artifacts
 target_code/test_*.py
+target_code/exploit_*.py
+test_*.py
+*.mp3
 
 # Environment variables
 .env
+

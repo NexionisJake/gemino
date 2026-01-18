@@ -9,97 +9,97 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PurpleVibe Audit Report</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             color: #eee;
             min-height: 100vh;
             padding: 40px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header {
+        }}
+        .container {{ max-width: 1200px; margin: 0 auto; }}
+        header {{
             text-align: center;
             margin-bottom: 40px;
             padding: 30px;
             background: rgba(138, 43, 226, 0.2);
             border-radius: 15px;
             border: 1px solid rgba(138, 43, 226, 0.4);
-        }
-        h1 {
+        }}
+        h1 {{
             font-size: 2.5rem;
             background: linear-gradient(90deg, #9b59b6, #3498db);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
-        }
-        .timestamp { color: #888; font-size: 0.9rem; }
-        .stats {
+        }}
+        .timestamp {{ color: #888; font-size: 0.9rem; }}
+        .stats {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 40px;
-        }
-        .stat-card {
+        }}
+        .stat-card {{
             background: rgba(255,255,255,0.05);
             padding: 25px;
             border-radius: 12px;
             text-align: center;
             border: 1px solid rgba(255,255,255,0.1);
-        }
-        .stat-number { font-size: 3rem; font-weight: bold; }
-        .stat-label { color: #888; margin-top: 5px; }
-        .critical { color: #e74c3c; }
-        .fixed { color: #2ecc71; }
-        .failed { color: #f39c12; }
-        .section { margin-bottom: 40px; }
-        .section h2 {
+        }}
+        .stat-number {{ font-size: 3rem; font-weight: bold; }}
+        .stat-label {{ color: #888; margin-top: 5px; }}
+        .critical {{ color: #e74c3c; }}
+        .fixed {{ color: #2ecc71; }}
+        .failed {{ color: #f39c12; }}
+        .section {{ margin-bottom: 40px; }}
+        .section h2 {{
             font-size: 1.5rem;
             margin-bottom: 20px;
             padding-bottom: 10px;
             border-bottom: 2px solid rgba(138, 43, 226, 0.5);
-        }
-        .vuln-card {
+        }}
+        .vuln-card {{
             background: rgba(231, 76, 60, 0.1);
             border: 1px solid rgba(231, 76, 60, 0.3);
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 15px;
-        }
-        .vuln-card.fixed {
+        }}
+        .vuln-card.fixed {{
             background: rgba(46, 204, 113, 0.1);
             border-color: rgba(46, 204, 113, 0.3);
-        }
-        .vuln-header { display: flex; justify-content: space-between; align-items: center; }
-        .vuln-type { font-weight: bold; font-size: 1.1rem; }
-        .vuln-severity {
+        }}
+        .vuln-header {{ display: flex; justify-content: space-between; align-items: center; }}
+        .vuln-type {{ font-weight: bold; font-size: 1.1rem; }}
+        .vuln-severity {{
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: bold;
-        }
-        .severity-critical { background: #e74c3c; }
-        .severity-high { background: #e67e22; }
-        .severity-medium { background: #f1c40f; color: #333; }
-        .severity-low { background: #3498db; }
-        .vuln-file { color: #9b59b6; margin: 10px 0; }
-        .vuln-desc { color: #aaa; line-height: 1.6; }
-        .status-badge {
+        }}
+        .severity-critical {{ background: #e74c3c; }}
+        .severity-high {{ background: #e67e22; }}
+        .severity-medium {{ background: #f1c40f; color: #333; }}
+        .severity-low {{ background: #3498db; }}
+        .vuln-file {{ color: #9b59b6; margin: 10px 0; }}
+        .vuln-desc {{ color: #aaa; line-height: 1.6; }}
+        .status-badge {{
             display: inline-block;
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 0.85rem;
             margin-top: 10px;
-        }
-        .status-fixed { background: #2ecc71; color: #fff; }
-        .status-failed { background: #e74c3c; color: #fff; }
-        footer {
+        }}
+        .status-fixed {{ background: #2ecc71; color: #fff; }}
+        .status-failed {{ background: #e74c3c; color: #fff; }}
+        footer {{
             text-align: center;
             padding: 30px;
             color: #666;
             border-top: 1px solid rgba(255,255,255,0.1);
             margin-top: 40px;
-        }
+        }}
     </style>
 </head>
 <body>
