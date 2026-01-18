@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from .scanner import ScannerAgent
 from .patcher import PatcherAgent
 from .verifier import VerifierAgent
+from .improver import ImproverAgent
 import sys
 
 # Attempt to import VibeEngine, handle path if needed
@@ -53,6 +54,7 @@ class ManagerAgent:
         
         self.scanner = ScannerAgent(trace_file=self.trace_file)
         self.patcher = PatcherAgent(trace_file=self.trace_file)
+        self.improver = ImproverAgent(trace_file=self.trace_file)
         self.verifier = VerifierAgent()
         self.vibe = VibeEngine()
         
@@ -329,8 +331,25 @@ class ManagerAgent:
                     error_feedback = fix_output
                     self.log_thought(f"Patch verification failed. Retrying...", speak=True)
                 else:
-                    self.log_thought("Patch failed. Intervention required.", speak=True)
-                    self.update_vuln_status(file_name, vuln_type, "✗ Failed", "red")
+                     # [NEW] META-PROGRAMMING TRIGGER
+                    self.vibe.alert("danger")
+                    self.log_thought("Max retries reached. Initiating Self-Evolution Protocol...", speak=True)
+                    self.update_vuln_status(file_name, vuln_type, "Evolving...", "magenta")
+                    live.update(self.generate_dashboard())
+                    
+                    # 1. Improve the Skill
+                    skill_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'skills', 'repair_code.md')
+                    success = self.improver.improve_skill(fix_output, skill_path)
+                    
+                    if success:
+                         self.log_thought("Neural pathways updated. Instructions rewritten.", speak=True)
+                         # Optional: You could try ONE more time with the new brain, 
+                         # but for the demo, just showing the update is enough.
+                         self.update_vuln_status(file_name, vuln_type, "Skill Upgraded", "bright_magenta")
+                    else:
+                         self.log_thought("Evolution failed. System halt.", speak=True)
+                         self.update_vuln_status(file_name, vuln_type, "✗ Failed", "red")
+                    
                     report_data["verification_results"].append({"file": file_path, "status": "Failed"})
         
         live.update(self.generate_dashboard())
