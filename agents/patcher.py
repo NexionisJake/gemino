@@ -110,3 +110,29 @@ Please analyze the error and generate a CORRECTED patch.
         except Exception as e:
             print(f"[!] Error creating patch: {e}")
             return None
+
+    def generate_attack_graph(self, vulnerability, filename):
+        """Generates a Mermaid.js graph visualization of the attack."""
+        skill_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'skills', 'graph_attack.md')
+        
+        # Fail safe if skill doesn't exist yet
+        if not os.path.exists(skill_path):
+            return None
+
+        with open(skill_path, 'r') as f:
+            skill_instructions = f.read()
+
+        prompt = f"""{skill_instructions}
+
+Vulnerability Details:
+{json.dumps(vulnerability, indent=2)}
+
+File Name: {filename}
+"""
+        try:
+            raw_response, parsed = self._generate_with_retry(prompt)
+            self._log_trace("generate_graph", f"Graphing {filename}", parsed)
+            return parsed.get("mermaid_code")
+        except Exception as e:
+            print(f"[!] Error generating graph: {e}")
+            return None

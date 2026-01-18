@@ -8,6 +8,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PurpleVibe Audit Report</title>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});
+    </script>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -83,7 +87,18 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         .severity-medium {{ background: #f1c40f; color: #333; }}
         .severity-low {{ background: #3498db; }}
         .vuln-file {{ color: #9b59b6; margin: 10px 0; }}
-        .vuln-desc {{ color: #aaa; line-height: 1.6; }}
+        .vuln-desc {{ color: #aaa; line-height: 1.6; margin-bottom: 15px; }}
+        
+        /* Graph Styling */
+        .graph-container {{
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+        }}
+        
         .status-badge {{
             display: inline-block;
             padding: 5px 15px;
@@ -157,12 +172,18 @@ def generate_html_report(report_data, output_path):
         file_name = v.get("file", "unknown")
         line = v.get("line", "?")
         desc = v.get("description", "No description provided.")
+        graph_code = v.get("attack_graph", "")
         
         # Check if fixed
         is_fixed = any(r.get("status") == "Fixed" for r in results if file_name in r.get("file", ""))
         card_class = "vuln-card fixed" if is_fixed else "vuln-card"
         status_html = '<span class="status-badge status-fixed">✓ FIXED</span>' if is_fixed else '<span class="status-badge status-failed">✗ OPEN</span>'
         
+        # Render Graph if available
+        graph_html = ""
+        if graph_code:
+            graph_html = f'<div class="graph-container"><div class="mermaid">{graph_code}</div></div>'
+
         vuln_cards += f'''
         <div class="{card_class}">
             <div class="vuln-header">
@@ -171,6 +192,7 @@ def generate_html_report(report_data, output_path):
             </div>
             <p class="vuln-file">📁 {file_name} : Line {line}</p>
             <p class="vuln-desc">{desc}</p>
+            {graph_html}
             {status_html}
         </div>
         '''
@@ -191,16 +213,17 @@ def generate_html_report(report_data, output_path):
     
     return output_path
 
-
 if __name__ == "__main__":
-    # Test with sample data
+    # Test data including a mermaid graph
     sample = {
         "vulnerabilities_found": [
-            {"file": "login.py", "line": 5, "type": "SQL Injection", "severity": "Critical", "description": "User input concatenated into SQL."}
+            {
+                "file": "login.py", "line": 5, "type": "SQL Injection", "severity": "Critical", 
+                "description": "User input concatenated into SQL.",
+                "attack_graph": "graph LR; User-->Login; Login-->Database; Database-->Hacked;"
+            }
         ],
-        "verification_results": [
-            {"file": "login.py", "status": "Fixed"}
-        ]
+        "verification_results": [{"file": "login.py", "status": "Fixed"}]
     }
     generate_html_report(sample, "reports/summary.html")
     print("Report generated!")

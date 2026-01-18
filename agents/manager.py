@@ -239,6 +239,12 @@ class ManagerAgent:
         self.update_vuln_status(file_name, vuln_type, "Analyzing", "yellow")
         live.update(self.generate_dashboard())
         
+        # [NEW] Generate Attack Graph
+        self.log_thought("Visualizing attack vector...", speak=False)
+        graph_code = self.patcher.generate_attack_graph(vuln, file_name)
+        if graph_code:
+            vuln["attack_graph"] = graph_code
+        
         with open(file_path, 'r') as f:
             original_content = f.read()
 
