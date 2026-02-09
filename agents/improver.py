@@ -1,12 +1,13 @@
 import os
 import json
-from google import genai
-from google.genai.types import GenerateContentConfig
+import time
+from config import Config
+import asyncio
 
 class ImproverAgent:
-    def __init__(self, model_name="gemini-1.5-flash", trace_file=None):
-        self.client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
-        self.model_name = model_name
+    def __init__(self, model_name=None, trace_file=None):
+        self.client = genai.Client(api_key=Config.GOOGLE_API_KEY)
+        self.model_name = model_name or Config.MODEL_PRIMARY
         self.trace_file = trace_file
 
     def _log_trace(self, action, prompt_summary, response):
@@ -28,7 +29,7 @@ class ImproverAgent:
             with open(self.trace_file, 'w') as f: json.dump(traces, f, indent=2)
         except Exception: pass
 
-    def improve_skill(self, error_feedback, skill_file_path):
+    async def improve_skill(self, error_feedback, skill_file_path):
         """Rewrites the skill file to handle the specific error."""
         
         if not os.path.exists(skill_file_path):
@@ -64,22 +65,29 @@ Rewrite the `SKILL_FILE` content to explicitly prevent this specific error in th
 * Keep the format STRICTLY the same.
 * Return ONLY the new content of the markdown file.
 """
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config=GenerateContentConfig(response_mime_type="text/plain")
-            )
+        models = Config.MODEL_FALLBACKS
+        
+        for model in models:
+            try:
+                self.model_name = model
+                response = await self.client.aio.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=GenerateContentConfig(response_mime_type="text/plain")
+                )
 
-            new_content = response.text
+                new_content = response.text
 
-            # Atomic overwrite
-            with open(skill_file_path, 'w') as f:
-                f.write(new_content)
+                # Atomic overwrite
+                with open(skill_file_path, 'w') as f:
+                    f.write(new_content)
 
-            self._log_trace("improve_skill", f"Rewrote {os.path.basename(skill_file_path)}", new_content)
-            return True
+                self._log_trace("improve_skill", f"Rewrote {os.path.basename(skill_file_path)}", new_content)
+                return True
 
-        except Exception as e:
-            print(f"[!] Improver failed: {e}")
-            return False
+            except Exception as e:
+                print(f"[!] Improver model {model} failed: {e}. Switching...")
+                # await asyncio.sleep(1)
+        
+        print("[!] Improver failed: All models exhausted.")
+        return False

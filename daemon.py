@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 import sys
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -41,9 +42,14 @@ class ShadowGuardian(FileSystemEventHandler):
             
             # Trigger scan
             try:
-                result = self.scanner.scan_file(filename)
-                if result and result.get("vulnerabilities"):
-                    count = len(result["vulnerabilities"])
+                scan_result, usage = asyncio.run(self.scanner.scan_file(filename))
+                
+                if scan_result is None:
+                    console.print("[bold red]Values scan failed (API Error).[/bold red]")
+                    return
+
+                if scan_result.get("vulnerabilities"):
+                    count = len(scan_result["vulnerabilities"])
                     console.print(f"[bold red]⚠ Found {count} potential vulnerabilities![/bold red]")
                     self.vibe.alert("danger")
                     self.vibe.speak(f"Warning. {count} vulnerabilities detected in modified file.")

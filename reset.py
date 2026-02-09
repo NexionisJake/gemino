@@ -68,7 +68,7 @@ def clean_reports():
         print(f"✓ Cleared reports folder.")
 
 if __name__ == "__main__":
-    print("🟣 PurpleVibe Demo Reset")
+    print("👁️ Argus Demo Reset")
     print("-" * 30)
     reset_login()
     reset_ping()

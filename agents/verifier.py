@@ -14,7 +14,8 @@ class VerifierAgent:
                 [sys.executable, '-m', 'pytest', test_path, '-v'],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                env={} # Sandbox: No environment variables
             )
             output = result.stdout + "\n" + result.stderr
             passed = result.returncode == 0

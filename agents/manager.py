@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 import json
 from rich.console import Console
 from rich.live import Live
@@ -12,6 +13,7 @@ from .scanner import ScannerAgent
 from .patcher import PatcherAgent
 from .verifier import VerifierAgent
 from .improver import ImproverAgent
+from config import config, Config # Import config
 import sys
 
 # Attempt to import VibeEngine, handle path if needed
@@ -27,25 +29,53 @@ from report_generator import generate_html_report
 console = Console()
 
 ASCII_BANNER = """
-[bold magenta]
-    ██████╗ ██╗   ██╗██████╗ ██████╗ ██╗     ███████╗██╗   ██╗██╗██████╗ ███████╗
-    ██╔══██╗██║   ██║██╔══██╗██╔══██╗██║     ██╔════╝██║   ██║██║██╔══██╗██╔════╝
-    ██████╔╝██║   ██║██████╔╝██████╔╝██║     █████╗  ██║   ██║██║██████╔╝█████╗  
-    ██╔═══╝ ██║   ██║██╔══██╗██╔═══╝ ██║     ██╔══╝  ╚██╗ ██╔╝██║██╔══██╗██╔══╝  
-    ██║     ╚██████╔╝██║  ██║██║     ███████╗███████╗ ╚████╔╝ ██║██████╔╝███████╗
-    ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝  ╚═══╝  ╚═╝╚═════╝ ╚══════╝
-[/bold magenta]
-[cyan]                    ⚡ Autonomous Security Auditor ⚡[/cyan]
-[dim]                       Powered by Gemini 2.5 Flash[/dim]
+[bold cyan]
+     █████╗ ██████╗  ██████╗ ██╗   ██╗███████╗
+    ██╔══██╗██╔══██╗██╔════╝ ██║   ██║██╔════╝
+    ███████║██████╔╝██║  ███╗██║   ██║███████╗
+    ██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║
+    ██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║
+    ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝
+[/bold cyan]
+[bold white]          👁️  THE HUNDRED-EYED AI GUARDIAN  👁️[/bold white]
+[magenta]                    ⚔️ Team Phalanx ⚔️[/magenta]
+[dim]                  Powered by Gemini 2.5 Flash[/dim]
 """
 
-MAX_PATCH_RETRIES = 2
+# MAX_PATCH_RETRIES is now in config
+
+class CostTracker:
+    def __init__(self):
+        self.total_input = 0
+        self.total_output = 0
+        self.total_cost = 0.0
+
+    def update(self, usage, model_name):
+        if not usage: return
+        
+        in_tok = usage.prompt_token_count
+        out_tok = usage.candidates_token_count
+        
+        self.total_input += in_tok
+        self.total_output += out_tok
+        
+        # Calculate Cost
+        # Hackathon Demo Pricing
+        if "flash" in model_name.lower():
+            cost = (in_tok / 1_000_000 * Config.COST_FLASH_INPUT) + (out_tok / 1_000_000 * Config.COST_FLASH_OUTPUT)
+        else: # Pro
+            cost = (in_tok / 1_000_000 * Config.COST_PRO_INPUT) + (out_tok / 1_000_000 * Config.COST_PRO_OUTPUT)
+            
+        self.total_cost += cost
+
+    def get_display_str(self):
+        return f"[bold green]${self.total_cost:.5f}[/bold green] ({self.total_input + self.total_output} toks)"
 
 class ManagerAgent:
-    def __init__(self, target_dir):
+    def __init__(self, target_dir, persona="standard"):
         self.target_dir = target_dir
-        self.reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'reports')
-        os.makedirs(self.reports_dir, exist_ok=True)
+        self.reports_dir = str(Config.REPORTS_DIR)
+        # os.makedirs(self.reports_dir, exist_ok=True) # Handled in config
         
         # Trace file for agent memory
         self.trace_file = os.path.join(self.reports_dir, 'agent_trace.json')
@@ -53,14 +83,19 @@ class ManagerAgent:
             os.remove(self.trace_file)
         
         self.scanner = ScannerAgent(trace_file=self.trace_file)
-        self.patcher = PatcherAgent(trace_file=self.trace_file)
+        self.patcher = PatcherAgent(trace_file=self.trace_file, persona=persona)
         self.improver = ImproverAgent(trace_file=self.trace_file)
         self.verifier = VerifierAgent()
         self.vibe = VibeEngine()
+        self.vibe.set_persona(persona)
+        self.cost_tracker = CostTracker()
         
         # Dashboard State
         self.vuln_states = []
-        self.current_thought = "Initializing PurpleVibe Systems..."
+        # Dashboard State
+        self.vuln_states = []
+        self.current_thought = "Initializing Argus Systems..."
+        self.thought_history = ["Initializing Argus Systems..."]
 
     def generate_dashboard(self):
         # Premium Layout
@@ -74,12 +109,18 @@ class ManagerAgent:
         # Header
         grid_header = Table.grid(expand=True)
         grid_header.add_column(justify="center", ratio=1)
-        grid_header.add_row("[bold white]🟣 PURPLE VIBE[/bold white] [dim]||[/dim] [cyan]AUTONOMOUS SECURITY AUDITOR[/cyan]")
+        grid_header.add_row("[bold white]👁️ ARGUS[/bold white] [dim]||[/dim] [cyan]THE HUNDRED-EYED AI GUARDIAN[/cyan] [dim]||[/dim] [magenta]Team Phalanx[/magenta]")
         grid_header.add_row("[dim]Powered by Gemini 1.5 Flash • Neural Voice Enabled[/dim]")
         
         layout["header"].update(Panel(grid_header, style="slate_blue1", border_style="bright_magenta"))
         
         # Body - Vuln Feed
+        layout["body"].split(
+            Layout(name="threats", ratio=2),
+            Layout(name="thoughts", ratio=1)
+        )
+        
+        # Threats Panel
         table = Table(expand=True, border_style="slate_blue1", header_style="bold cyan")
         table.add_column("TARGET FILE", style="bright_white")
         table.add_column("THREAT TYPE", style="red")
@@ -97,16 +138,42 @@ class ManagerAgent:
                 Text(status_text, style=status_style)
             )
             
-        layout["body"].update(Panel(table, title="[bold white]LIVE THREAT INTELLIGENCE[/bold white]", border_style="cyan"))
+        layout["threats"].update(Panel(table, title="[bold white]LIVE THREAT INTELLIGENCE[/bold white]", border_style="cyan"))
+
+        # Thoughts Panel
+        thought_group = Text()
+        for i, thought in enumerate(self.thought_history):
+            style = "dim white"
+            if i == len(self.thought_history) - 1:
+                style = "bold bright_green"
+                thought = f"▶ {thought}"
+            else:
+                thought = f"  {thought}"
+            thought_group.append(thought + "\n", style=style)
+            
+        layout["thoughts"].update(Panel(thought_group, title="[bold magenta]DEEP REASONING PROCESS[/bold magenta]", border_style="magenta"))
         
-        # Footer - Brain
+        # Footer - Brain & Cost
+        cost_str = self.cost_tracker.get_display_str()
+        
+        # Create a grid for the footer to hold both Brain + Cost
+        footer_grid = Table.grid(expand=True)
+        footer_grid.add_column(ratio=3)
+        footer_grid.add_column(ratio=1, justify="right")
+        
         thought_text = Text(f"▶ {self.current_thought}", style="italic bright_green")
-        layout["footer"].update(Panel(thought_text, title="SYSTEM LOGIC", border_style="green"))
+        footer_grid.add_row(thought_text, f"Cost: {cost_str}")
+        
+        layout["footer"].update(Panel(footer_grid, title="SYSTEM LOGIC & ECONOMICS", border_style="green"))
         
         return layout
 
     def log_thought(self, message, speak=False):
         self.current_thought = message
+        self.thought_history.append(message)
+        if len(self.thought_history) > 8:  # Keep only recent thoughts for UI
+            self.thought_history.pop(0)
+            
         if speak:
             self.vibe.speak(message)
 
@@ -121,11 +188,11 @@ class ManagerAgent:
         if not found:
             self.vuln_states.append({"file": file, "vuln_type": vuln_type, "status": status, "color": color})
 
-    def run(self):
+    async def run(self):
         # Show ASCII banner
         console.print(ASCII_BANNER)
         self.vibe.speak("System Online.")
-        time.sleep(1)
+        await asyncio.sleep(1)
         
         report_data = {
             "vulnerabilities_found": [],
@@ -149,28 +216,38 @@ class ManagerAgent:
             BarColumn(),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         ) as progress:
-            scan_task = progress.add_task("Scanning files...", total=len(files_to_scan))
+            scan_task = progress.add_task("Scanning files...", total=1)
             
-            for full_path in files_to_scan:
-                file_name = os.path.basename(full_path)
-                progress.update(scan_task, description=f"Scanning {file_name}...")
+            progress.update(scan_task, description=f"Scanning {len(files_to_scan)} files in batch...")
+            files_scanned_count = 0
+            
+            scan_result, usage = await self.scanner.scan_project(files_to_scan)
+            
+            if scan_result:
+                files_scanned_count += len(files_to_scan)
+                self.cost_tracker.update(usage, "gemini-flash-latest")
                 
-                scan_result = self.scanner.scan_file(full_path)
-                
-                if scan_result and "vulnerabilities" in scan_result:
+                vulns = []
+                if "vulnerabilities" in scan_result:
                     vulns = scan_result["vulnerabilities"]
-                    if vulns:
-                        # Report found
-                        self.vibe.alert("danger")
-                        self.vibe.speak(f"Critical: {len(vulns)} threats found.")
-                        
-                        for vuln in vulns:
-                            vuln_type = self._extract_vuln_type(vuln)
-                            self.update_vuln_status(file_name, vuln_type, "Detected", "red")
-                            report_data["vulnerabilities_found"].append(vuln)
-                
-                progress.advance(scan_task)
+                if vulns:
+                    # Report found
+                    self.vibe.alert("danger")
+                    self.vibe.speak(f"Critical: {len(vulns)} threats found.")
+                    
+                    for vuln in vulns:
+                        vuln_type = self._extract_vuln_type(vuln)
+                        file_name = vuln.get("file", "unknown")
+                        self.update_vuln_status(file_name, vuln_type, "Detected", "red")
+                        report_data["vulnerabilities_found"].append(vuln)
+            
+            progress.advance(scan_task)
         
+        if files_scanned_count == 0 and len(files_to_scan) > 0:
+            console.print("\n[bold red]Scans failed for all targets. Aborting.[/bold red]\n")
+            self.vibe.speak("System Failure. All scans aborted.")
+            return
+
         if not report_data["vulnerabilities_found"]:
             console.print("\n[bold green]✓ No vulnerabilities found! All clear.[/bold green]\n")
             self.vibe.speak("Scan, complete. System Secure.")
@@ -179,7 +256,7 @@ class ManagerAgent:
             return
         
         console.print(f"\n[bold red]Found {len(report_data['vulnerabilities_found'])} vulnerability(ies). Starting remediation...[/bold red]\n")
-        time.sleep(1)
+        await asyncio.sleep(1)
         
         # Phase 2: Remediation Dashboard
         with Live(self.generate_dashboard(), refresh_per_second=4) as live:
@@ -205,12 +282,12 @@ class ManagerAgent:
                 
                 for vuln in vulns:
                     vuln_type = self._extract_vuln_type(vuln)
-                    self.handle_vulnerability(vuln, full_path, report_data, live, file_name, vuln_type)
-                    time.sleep(2)
+                    await self.handle_vulnerability(vuln, full_path, report_data, live, file_name, vuln_type)
+                    await asyncio.sleep(2)
             
             self.log_thought("Audit Complete. Generating reports...", speak=True)
             live.update(self.generate_dashboard())
-            time.sleep(2)
+            await asyncio.sleep(2)
         
         self._save_reports(report_data)
         self.vibe.speak("Audit complete. Shutting down.")
@@ -236,26 +313,28 @@ class ManagerAgent:
         console.print(f"  🌐 HTML: {html_path}")
         console.print(f"  🧠 Agent Trace: {self.trace_file}\n")
 
-    def handle_vulnerability(self, vuln, file_path, report_data, live, file_name, vuln_type):
+    async def handle_vulnerability(self, vuln, file_path, report_data, live, file_name, vuln_type):
         self.log_thought(f"Analyzing {vuln_type} in {file_name}...", speak=True)
         self.update_vuln_status(file_name, vuln_type, "Analyzing", "yellow")
         live.update(self.generate_dashboard())
         
-        # [NEW] Generate Attack Graph
+        # [NEW] Generate Attack Graph (Optional: Enabled)
         self.log_thought("Visualizing attack vector...", speak=False)
-        graph_code = self.patcher.generate_attack_graph(vuln, file_name)
+        graph_code, usage = await self.patcher.generate_attack_graph(vuln, file_name)
+        self.cost_tracker.update(usage, "gemini-flash-latest")
         if graph_code:
             vuln["attack_graph"] = graph_code
         
         with open(file_path, 'r') as f:
             original_content = f.read()
 
-        # Step 1: Generate Exploit Demo (Phase 4 Feature)
+        # Step 1: Generate Exploit Demo (Phase 4 Feature) - Enabled
         self.log_thought("Generating Proof-of-Concept Exploit...", speak=False)
         self.update_vuln_status(file_name, vuln_type, "Generating Exploit", "red")
         live.update(self.generate_dashboard())
         
-        exploit_data = self.patcher.create_exploit(vuln, original_content, file_name)
+        exploit_data, usage = await self.patcher.create_exploit(vuln, original_content, file_name)
+        self.cost_tracker.update(usage, "gemini-flash-latest")
         if exploit_data:
             exploit_code = exploit_data.get("exploit_code")
             if exploit_code:
@@ -266,13 +345,16 @@ class ManagerAgent:
         
         # Step 2: Patching Loop
         error_feedback = None
-        for attempt in range(MAX_PATCH_RETRIES + 1):
+        # Step 2: Patching Loop
+        error_feedback = None
+        for attempt in range(Config.MAX_PATCH_RETRIES + 1):
             if attempt > 0:
                 self.log_thought(f"Retry attempt {attempt}/{MAX_PATCH_RETRIES}...", speak=True)
                 self.update_vuln_status(file_name, vuln_type, f"Retry {attempt}", "magenta")
                 live.update(self.generate_dashboard())
             
-            patch_result = self.patcher.create_patch(vuln, original_content, file_name, error_feedback)
+            patch_result, usage = await self.patcher.create_patch(vuln, original_content, file_name, error_feedback)
+            self.cost_tracker.update(usage, "gemini-flash-latest")
             
             if not patch_result:
                 self.update_vuln_status(file_name, vuln_type, "Patch Gen Failed", "red")
@@ -295,9 +377,27 @@ class ManagerAgent:
             self.update_vuln_status(file_name, vuln_type, "Verifying Exploit", "yellow")
             live.update(self.generate_dashboard())
             
-            passed_initial, initial_output = self.verifier.run_test(test_path)
+            passed_initial, initial_output = await asyncio.to_thread(self.verifier.run_test, test_path)
             
             # Apply fix
+            self.log_thought("Proposal ready. Waiting for user approval...", speak=True)
+            self.update_vuln_status(file_name, vuln_type, "Waiting Approval", "bright_yellow")
+            live.update(self.generate_dashboard())
+            
+            # Interactive Prompt
+            # We need to pause the live display to get input, or just print and expect input.
+            # Rich Live context handling with input is tricky.
+            # For simplicity in this TUI, we might just proceed if auto-mode, but plan says "Interactive".
+            # Let's wrap input in a stop/start of live or just print.
+            live.stop()
+            confirm = console.input(f"\n[bold yellow]Apply patch for {vuln_type} in {file_name}? (Y/n): [/bold yellow]")
+            live.start()
+            
+            if confirm.lower() == 'n':
+                 self.log_thought("Patch rejected by user.", speak=True)
+                 self.update_vuln_status(file_name, vuln_type, "Skipped", "white")
+                 return
+
             self.log_thought("Applying secure patch logic...", speak=False)
             self.update_vuln_status(file_name, vuln_type, "Patching", "magenta")
             live.update(self.generate_dashboard())
@@ -314,7 +414,7 @@ class ManagerAgent:
             self.update_vuln_status(file_name, vuln_type, "Verifying Patch", "cyan")
             live.update(self.generate_dashboard())
             
-            passed_fix, fix_output = self.verifier.run_test(test_path)
+            passed_fix, fix_output = await asyncio.to_thread(self.verifier.run_test, test_path)
             
             if passed_fix:
                 self.vibe.alert("success")
@@ -327,7 +427,7 @@ class ManagerAgent:
                 with open(file_path, 'w') as f:
                     f.write(original_content)
                 
-                if attempt < MAX_PATCH_RETRIES:
+                if attempt < Config.MAX_PATCH_RETRIES:
                     error_feedback = fix_output
                     self.log_thought(f"Patch verification failed. Retrying...", speak=True)
                 else:
@@ -338,8 +438,8 @@ class ManagerAgent:
                     live.update(self.generate_dashboard())
                     
                     # 1. Improve the Skill
-                    skill_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'skills', 'repair_code.md')
-                    success = self.improver.improve_skill(fix_output, skill_path)
+                    skill_path = os.path.join(str(Config.SKILLS_DIR), 'repair_code.md')
+                    success = await self.improver.improve_skill(fix_output, skill_path)
                     
                     if success:
                          self.log_thought("Neural pathways updated. Instructions rewritten.", speak=True)

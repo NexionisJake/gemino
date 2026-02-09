@@ -7,7 +7,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PurpleVibe Audit Report</title>
+    <title>Argus Security Audit Report</title>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
       mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});
@@ -120,7 +120,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
 <body>
     <div class="container">
         <header>
-            <h1>🟣 PurpleVibe Audit Report</h1>
+            <h1>👁️ Argus Security Audit Report</h1>
             <p class="timestamp">Generated: {timestamp}</p>
         </header>
         
@@ -145,7 +145,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         </div>
         
         <footer>
-            <p>Powered by PurpleVibe Autonomous Security Auditor</p>
+            <p>Powered by Argus — The Hundred-Eyed AI Guardian | Team Phalanx</p>
             <p>Using Gemini 2.5 Flash AI</p>
         </footer>
     </div>

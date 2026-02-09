@@ -15,13 +15,23 @@ import threading
 import time
 import tempfile
 import queue
+from config import Config
 
 class VibeEngine:
     def __init__(self):
-        self.enabled = True
-        self.voice = "en-US-AriaNeural"
+        self.enabled = Config.VIBE_ENABLED
+        self.voice = Config.TTS_VOICE_DEFAULT
         self.queue = queue.Queue()
         self.running = True
+
+    def set_persona(self, persona):
+        """Sets the voice based on the persona."""
+        if persona == "pirate":
+            self.voice = Config.TTS_VOICE_PIRATE
+        elif persona == "corporate":
+            self.voice = Config.TTS_VOICE_CORPORATE
+        else:
+            self.voice = Config.TTS_VOICE_DEFAULT
         
         try:
             pygame.mixer.init()

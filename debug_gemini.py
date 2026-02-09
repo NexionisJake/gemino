@@ -5,7 +5,7 @@ from google.genai.errors import ClientError
 from dotenv import load_dotenv
 
 # Load .env
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../.env')
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 load_dotenv(env_path)
 
 api_key = os.environ.get("GOOGLE_API_KEY")
