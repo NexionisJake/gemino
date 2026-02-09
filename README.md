@@ -4,7 +4,7 @@
 
 **Argus** is a next-generation security auditing tool that transforms static code analysis into a real-time, interactive neural interface. Designed with a "Deep Space" aesthetic, it provides a seamless dashboard for monitoring file changes, detecting vulnerabilities, and applying AI-driven patches instantly.
 
-![Dashboard Preview](/home/nexion/.gemini/antigravity/brain/6cc396a2-ca6a-4b54-b9f3-02a980805edf/dashboard_view_1770657615740.png)
+![Dashboard Preview](ss.png)
 
 ---
 
